@@ -1,1 +1,4 @@
-The Python SDK for interfacing to the RadarIQ M-series modules
+RadarIQ Python wrapper
+======================
+
+see maker.radariq.io
