@@ -34,11 +34,11 @@ speed_lookup = {
 
 # Conversion factors for acceleration conversion (from meters/second)
 acceleration_lookup = {
-    "mm/s²": 1000,
-    "cm/s²": 100,
-    "m/s²": 1,
-    "in/s²": 39.3701,
-    "ft/s²": 3.28084,
+    "mm/s^2": 1000,
+    "cm/s^2": 100,
+    "m/s^2": 1,
+    "in/s^2": 39.3701,
+    "ft/s^2": 3.28084,
 }
 
 

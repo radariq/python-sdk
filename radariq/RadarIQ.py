@@ -61,7 +61,7 @@ class RadarIQ:
                                   connection_status_callback=self.connection_status_callback, *args, **kwargs)
         self.distance_units = "m"
         self.speed_units = "m/s"
-        self.acceleration_units = 'm/s²'
+        self.acceleration_units = 'm/s^2'
         self.is_capturing = False
         self.capture_max = 0
         self.capture_count = 0
@@ -73,6 +73,7 @@ class RadarIQ:
     def __del__(self):
         print("destructor called")
         self.close()
+        print("Destructed")
 
     def close(self):
         """
@@ -80,6 +81,7 @@ class RadarIQ:
         """
         try:
             self.stop()
+            time.sleep(0.5)
             self.connection.stop()
             self.connection.close()
         except Exception:
@@ -126,7 +128,7 @@ class RadarIQ:
         :type distance_units: str
         :param speed_units: The speed units to use: "mm/s", "cm/s", "m/s", "km/h", "in/s", "ft/s", "mi/h"
         :type speed_units: str
-        :param acceleration_units: The speed units to use: "mm/s²", "m/s²", "in/s²", "ft/s²"
+        :param acceleration_units: The speed units to use: "mm/s^2", "m/s^2", "in/s^2", "ft/s^2"
         :type acceleration_units: str
         """
         try:
@@ -743,7 +745,7 @@ class RadarIQ:
                         pass
             except ValueError:
                 pass
-        self.stop()
+        #self.stop()
 
     def _convert_pointcloud_to_numpy(self, frame):
         """
@@ -797,7 +799,12 @@ class RadarIQ:
          d['inter_frame_proc_margin'], d['inter_chirp_proc_margin'], d['points_aggregation_time'],
          d['intensity_sort_time'], d['nearest_neighbours_time'], d['packet_transmit_time'],
          d['filter_points_removed'], d['num_transmitted_points'], d['input_points_truncated'],
-         d['output_points_truncated']) = unpack("<12L2B", frame[2:])
+         d['output_points_truncated'], d['temperature_sensor_0'], d['temperature_sensor_1'],
+         d['temperature_power_management'], d['temperature_rx_0'], d['temperature_rx_1'],
+         d['temperature_rx_2'], d['temperature_rx_3'], d['temperature_tx_0'], d['temperature_tx_1'],
+         d['temperature_tx_2'],
+
+         ) = unpack("<12L2B10h", frame[2:])
 
         d['rx_buffer_length'] = len(self.connection.rx_buffer)
         d['rx_packet_queue'] = self.get_queue_size()
