@@ -49,8 +49,11 @@ class RadarIQ:
 
         :param port: COM port the RadarIQ module is attached to.
                      If not supplied, then the module is searched for automatically
-        :param output_format: The format for the outputted points.
         :type port: str
+        :param output_format: The format for the outputted points.
+        :type output_format: int
+        :param connection_status_callback: Function to call when the connection to the RadarIQ module changes
+        :type connection_status_callback: def
         """
         if port is None:
             p = find_com_port()
@@ -62,6 +65,7 @@ class RadarIQ:
         self.distance_units = "m"
         self.speed_units = "m/s"
         self.acceleration_units = 'm/s^2'
+        self.mirror = False
         self.is_capturing = False
         self.capture_max = 0
         self.capture_count = 0
@@ -77,11 +81,11 @@ class RadarIQ:
 
     def close(self):
         """
-        Close all RadarIQ connections
+        Close all RadarIQ connections.
         """
         try:
             self.stop()
-            time.sleep(0.5)
+            time.sleep(0.5) # wait for the module to stop before closing the serial connection
             self.connection.stop()
             self.connection.close()
         except Exception:
@@ -149,7 +153,7 @@ class RadarIQ:
 
     def process_message(self, msg):
         """
-        Process a message onto the python log
+        Process a message onto the python log.
         """
         try:
             res = unpack("<BBBB200s", msg)
@@ -661,6 +665,7 @@ class RadarIQ:
         :rtype: a python list, numpy ndarray or None (on timeout)
         """
 
+        mirror = 1 if self.mirror is False else -1 # multiplier for mirroring x-data
         if timeout <= 0:
             raise Exception("Timeout must be greater than 0")
 
@@ -682,7 +687,7 @@ class RadarIQ:
                         idx = 0
                         for cnt in range(count):
                             # SI units are needed so convert mm to m
-                            rx_frame.append([units.convert_distance_from_si(self.distance_units, unpacked[idx] / 1000),
+                            rx_frame.append([mirror * units.convert_distance_from_si(self.distance_units, unpacked[idx] / 1000),
                                              units.convert_distance_from_si(self.distance_units,
                                                                             unpacked[idx + 1] / 1000),
                                              units.convert_distance_from_si(self.distance_units,
@@ -713,13 +718,13 @@ class RadarIQ:
 
                             rx_frame.append(
                                 {'tracking_id': unpacked[idx],
-                                 'x_pos': units.convert_distance_from_si(self.distance_units, unpacked[idx + 1] / 1000),
+                                 'x_pos': mirror * units.convert_distance_from_si(self.distance_units, unpacked[idx + 1] / 1000),
                                  'y_pos': units.convert_distance_from_si(self.distance_units, unpacked[idx + 2] / 1000),
                                  'z_pos': units.convert_distance_from_si(self.distance_units, unpacked[idx + 3] / 1000),
-                                 'x_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 4] / 1000),
+                                 'x_vel': mirror * units.convert_speed_from_si(self.speed_units, unpacked[idx + 4] / 1000),
                                  'y_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 5] / 1000),
                                  'z_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 6] / 1000),
-                                 'x_acc': units.convert_acceleration_from_si(self.acceleration_units,
+                                 'x_acc': mirror * units.convert_acceleration_from_si(self.acceleration_units,
                                                                              unpacked[idx + 7] / 1000),
                                  'y_acc': units.convert_acceleration_from_si(self.acceleration_units,
                                                                              unpacked[idx + 8] / 1000),
