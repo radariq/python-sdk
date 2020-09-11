@@ -7,7 +7,7 @@ from __future__ import division
 import logging
 import time
 from radariq.compatability import pack, unpack, as_hex, int_to_bytes
-from radariq.TSerial import TSerial, MODE_BSL, CONNECTION_DISCONNECTED
+from radariq.TSerial import TSerial, CONNECTION_DISCONNECTED
 import radariq.units_converter as units
 from radariq.port_manager import find_com_port
 import numpy as np
@@ -60,7 +60,7 @@ class RadarIQ:
             port = p.device
 
         self.application_connection_status_callback = connection_status_callback
-        self.connection = TSerial(port=port, baudrate=115200, mode=MODE_BSL,
+        self.connection = TSerial(port=port, baudrate=115200,
                                   connection_status_callback=self.connection_status_callback, *args, **kwargs)
         self.distance_units = "m"
         self.speed_units = "m/s"
@@ -99,7 +99,7 @@ class RadarIQ:
         """
         print("Sending: " + as_hex(msg))
         self.connection.flush_all()
-        self.connection.send_bsl_packet(msg)
+        self.connection.send_packet(msg)
 
     def _read(self):
         """

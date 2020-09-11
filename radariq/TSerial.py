@@ -2,24 +2,20 @@ import threading
 import time
 import six
 import logging
-from serial import Serial, LF, SerialException, SerialTimeoutException
-from radariq.compatability import queue, as_hex, pack, unpack, int_to_bytes
+from serial import Serial, LF, SerialException
+from radariq.compatability import queue, pack, unpack, int_to_bytes
 
 log = logging.getLogger('RadarIQ')
 
-# Modes
-MODE_RAW = 0
-MODE_BSL = 1
-
-# BSL Packet constants
-LIB_BSL_PACKET_HEAD = 0xB0
-LIB_BSL_PACKET_FOOT = 0xB1
-LIB_BSL_PACKET_ESC = 0xB2
-LIB_BSL_PACKET_XOR = 0x04
-LIB_BSL_PACKET_HEAD_BYTES = int_to_bytes(LIB_BSL_PACKET_HEAD)
-LIB_BSL_PACKET_FOOT_BYTES = int_to_bytes(LIB_BSL_PACKET_FOOT)
-LIB_BSL_PACKET_ESC_BYTES = int_to_bytes(LIB_BSL_PACKET_ESC)
-LIB_BSL_PACKET_XOR_BYTES = int_to_bytes(LIB_BSL_PACKET_XOR)
+# Packet constants
+PACKET_HEAD = 0xB0
+PACKET_FOOT = 0xB1
+PACKET_ESC = 0xB2
+PACKET_XOR = 0x04
+PACKET_HEAD_BYTES = int_to_bytes(PACKET_HEAD)
+PACKET_FOOT_BYTES = int_to_bytes(PACKET_FOOT)
+PACKET_ESC_BYTES = int_to_bytes(PACKET_ESC)
+PACKET_XOR_BYTES = int_to_bytes(PACKET_XOR)
 
 # Connection Statuses
 CONNECTION_CONNECTED = 0
@@ -35,21 +31,17 @@ class TSerial(Serial):
     Supports:
     * Every command that pyserial supports
     * Faster 'read_until' implementation
-    * Raw and BSL message formats
     * Message passing via queues
     * Starting and stopping of threads
 
     Initialize just like a regular serial connection
     """
 
-    def __init__(self, mode=MODE_RAW, footer=LF, sleep=None, connection_status_callback=None, *args, **kwargs):
+    def __init__(self, sleep=None, connection_status_callback=None, *args, **kwargs):
         """
-        :param mode: The receive mode
-        :param footer: Footer byte for packets
+        :param connection_status_callback: Callback to call when the connection status changes
         :param sleep: Number of seconds to sleep when run out of data (setting this will help lower CPU Usage)
         """
-        self.serial_mode = mode
-        self.footer = footer
         self.sleep = sleep
         if connection_status_callback is not None:
             self.connection_status_callback = connection_status_callback
@@ -75,13 +67,7 @@ class TSerial(Serial):
         """
         Start a receive thread running
         """
-
-        if self.serial_mode == MODE_RAW:
-            processor = self._raw_packet_rx
-        elif self.serial_mode == MODE_BSL:
-            processor = self._bsl_packet_rx
-        else:
-            raise Exception("Threaded Serial mode not supported")
+        processor = self._packet_rx
 
         self.thread_running = True
         if self._thread_process_running is False:
@@ -101,25 +87,9 @@ class TSerial(Serial):
         """
         pass
 
-    def _raw_packet_rx(self):
+    def _packet_rx(self):
         """
-        Receive a packet (terminated with footer byte) from the serial stream and decode it and check the CRC.
-
-        :return: received message
-        :rtype: bytes
-        """
-        while self.thread_running:
-            msg = self.read_fast(self.footer)
-            try:
-                self.q.put_nowait(msg)
-            except queue.Full:
-                log.warning("Cannot add message to the queue because the queue is full")
-            except Exception as err:
-                log.info(err)
-
-    def _bsl_packet_rx(self):
-        """
-        Receive a BSL packet from the serial stream and decode it and check the CRC.
+        Receive a packet from the serial stream and decode it and check the CRC.
 
         :return: Unescaped Packet with header, footer, crc removed
         :rtype: bytes
@@ -127,7 +97,7 @@ class TSerial(Serial):
         self._thread_process_running = True
         while self.thread_running:
             try:
-                msg = self.read_fast(LIB_BSL_PACKET_FOOT_BYTES, LIB_BSL_PACKET_HEAD_BYTES)
+                msg = self.read_fast(PACKET_FOOT_BYTES, PACKET_HEAD_BYTES)
                 self.q.put_nowait(self.decode(msg))
             except queue.Full:
                 log.warning("Cannot add message to the queue because the queue is full")
@@ -183,16 +153,14 @@ class TSerial(Serial):
                     stay_awake = True if (time.time() - self.last_comms) < self.sleep else False
                     if stay_awake is False:
                         time.sleep(self.sleep)
-            except SerialException as err:
-                print('x', err)
+            except SerialException:
                 self._handle_disconnect()
             except Exception as ex:
                 print(type(ex).__name__)
 
-
-    def send_bsl_packet(self, msg):
+    def send_packet(self, msg):
         """
-        Encode a message with BSL packet and send.
+        Encode a message and send.
 
         :param msg: message to send
         :type msg: bytes
@@ -202,49 +170,14 @@ class TSerial(Serial):
         try:
             self.reset_comms_timer()
             return self.write(self.encode(msg))
-        except SerialException as err:
+        except SerialException:
             self._handle_disconnect()
-        except Exception as err:
-            print(err)
-            log.warning("Failed to send data")
-
-    def send_bytes(self, msg):
-        """
-        Send a byte string to the serial.
-
-        :param msg: message to send
-        :type msg: bytes
-        :return: Number of bytes written
-        :rtype: int
-        """
-        try:
-            self.reset_comms_timer()
-            return self.write(msg)
-        except SerialException as err:
-            self._handle_disconnect()
-        except Exception as err:
-            log.warning("Failed to send data")
-
-    def send_string(self, msg):
-        """
-        Send a string to the serial
-
-        :param msg: message to send
-        :type msg: str
-        :return: Number of bytes written
-        :rtype: int
-        """
-        try:
-            self.reset_comms_timer()
-            return self.write(msg.encode('utf-8'))
-        except SerialException as err:
-            self._handle_disconnect()
-        except Exception as err:
+        except Exception:
             log.warning("Failed to send data")
 
     def decode(self, src):
         """
-        Decodes data from src with BSLs packet structure.
+        Decodes data from src.
         Expects header and footer bytes at the start and end of packet respectively.
         Unescapes any header, footer or escape bytes within the packet
         warning: Does not support messages over 255.
@@ -254,29 +187,29 @@ class TSerial(Serial):
         :return: decoded data
         :rtype: bytes
         """
-        if src[0:1] != LIB_BSL_PACKET_HEAD_BYTES:
+        if src[0:1] != PACKET_HEAD_BYTES:
             raise Exception("First byte of the message to decode is not a header byte")
-        if src[-1:] != LIB_BSL_PACKET_FOOT_BYTES:
+        if src[-1:] != PACKET_FOOT_BYTES:
             raise Exception("Last byte of the message to decode is not a footer byte")
         dest = b""
-        srcIdx = 0
+        src_idx = 0
 
         # Loop through all bytes except footer
-        while srcIdx < len(src) - 1:
-            char = src[srcIdx:srcIdx + 1]
-            if char == LIB_BSL_PACKET_HEAD_BYTES:
+        while src_idx < len(src) - 1:
+            char = src[src_idx:src_idx + 1]
+            if char == PACKET_HEAD_BYTES:
                 pass
 
-            elif char == LIB_BSL_PACKET_ESC_BYTES:
-                srcIdx += 1  # Advance to the byte after the escape character
-                char = src[srcIdx:srcIdx + 1]
+            elif char == PACKET_ESC_BYTES:
+                src_idx += 1  # Advance to the byte after the escape character
+                char = src[src_idx:src_idx + 1]
                 c = unpack("<B", char)[0]  # convert byts to int
-                dest += int_to_bytes(c ^ LIB_BSL_PACKET_XOR)
+                dest += int_to_bytes(c ^ PACKET_XOR)
 
             else:
                 dest += char
 
-            srcIdx += 1
+            src_idx += 1
 
         # Crc check
         data = dest[0: -2]
@@ -294,8 +227,9 @@ class TSerial(Serial):
 
     def encode(self, src):
         """
-        Encodes data from src with BSLs packet structure.
-        Adds header and footer to bytes to start and end of packet respectively. Escapes any header, footer or escape bytes.
+        Encodes data from src.
+        Adds header and footer to bytes to start and end of packet respectively.
+        Escapes any header, footer or escape bytes.
         Does not support messages over 255.
 
         :param src Data needing to be encoded
@@ -307,31 +241,31 @@ class TSerial(Serial):
         # Add CRC to the source string (so it can be encoded)
         crc = self.crc16_ccitt(src)
         src += pack("<H", crc)
-        srcIdx = 0
+        src_idx = 0
 
         # Add packet header
-        dest = LIB_BSL_PACKET_HEAD_BYTES
+        dest = PACKET_HEAD_BYTES
         # Loop through data, check for footer bytes in data and escape them
-        while srcIdx <= len(src):
-            char = src[srcIdx:srcIdx + 1]
-            if char == LIB_BSL_PACKET_HEAD_BYTES:
-                dest += LIB_BSL_PACKET_ESC_BYTES
-                dest += int_to_bytes(LIB_BSL_PACKET_HEAD ^ LIB_BSL_PACKET_XOR)
+        while src_idx <= len(src):
+            char = src[src_idx:src_idx + 1]
+            if char == PACKET_HEAD_BYTES:
+                dest += PACKET_ESC_BYTES
+                dest += int_to_bytes(PACKET_HEAD ^ PACKET_XOR)
 
-            elif char == LIB_BSL_PACKET_FOOT_BYTES:
-                dest += LIB_BSL_PACKET_ESC_BYTES
-                dest += int_to_bytes(LIB_BSL_PACKET_FOOT ^ LIB_BSL_PACKET_XOR)
+            elif char == PACKET_FOOT_BYTES:
+                dest += PACKET_ESC_BYTES
+                dest += int_to_bytes(PACKET_FOOT ^ PACKET_XOR)
 
-            elif char == LIB_BSL_PACKET_ESC_BYTES:
-                dest += LIB_BSL_PACKET_ESC_BYTES
-                dest += int_to_bytes(LIB_BSL_PACKET_ESC ^ LIB_BSL_PACKET_XOR)
+            elif char == PACKET_ESC_BYTES:
+                dest += PACKET_ESC_BYTES
+                dest += int_to_bytes(PACKET_ESC ^ PACKET_XOR)
 
             else:
                 dest += char
-            srcIdx += 1
+            src_idx += 1
 
         # Add the packet footer
-        dest += LIB_BSL_PACKET_FOOT_BYTES
+        dest += PACKET_FOOT_BYTES
 
         if len(dest) > 255:
             raise Exception("Encoded packet is greater than the maximum of 255 bytes")
@@ -343,10 +277,11 @@ class TSerial(Serial):
         Reset the timer which keeps track of when the last communications (inbound or outbound) occured.
         """
         self.last_comms = time.time()
-        
+
     def crc16_ccitt(self, data):
         """
-        CRC CCITT 0xFFFF algorithm
+        CRC CCITT 0xFFFF algorithm.
+
         :param data: data to calculate the crc for
         :type data: bytes
         """
@@ -364,7 +299,7 @@ class TSerial(Serial):
         """
         Handle the disconnection of the serial connection.
 
-        This will attempt auto-reconnection with backoff
+        This will attempt auto-reconnection with back-off
         """
         self.close()
         self.connection_status_callback(CONNECTION_DISCONNECTED)
