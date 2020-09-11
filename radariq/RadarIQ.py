@@ -120,6 +120,15 @@ class RadarIQ:
                     return msg
         raise Exception("Timeout while reading from the RadarIQ module")
 
+    def set_mirror(self, mirror=False):
+        """
+        Enable the X coordinates to be mirrored.
+
+        :param mirror: set to True to mirror the radar data in the X direction
+        :type mirror: bool
+        """
+        self.mirror = mirror
+
     def set_units(self, distance_units=None, speed_units=None, acceleration_units=None):
         """
         Sets the units this instance will use.
