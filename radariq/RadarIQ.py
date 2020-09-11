@@ -671,7 +671,9 @@ class RadarIQ:
 
         last_data_time = time.time()
         rx_frame = []
-        while self.is_capturing is True and time.time() < (last_data_time + timeout):
+        while self.is_capturing is True:
+            if time.time() < (last_data_time + timeout):
+                yield
             try:
                 subframe = self.connection.read_from_queue()
                 if subframe is not None:
@@ -750,7 +752,7 @@ class RadarIQ:
                         pass
             except ValueError:
                 pass
-        #self.stop()
+        self.stop()
 
     def _convert_pointcloud_to_numpy(self, frame):
         """
