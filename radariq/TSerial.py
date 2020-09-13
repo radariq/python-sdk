@@ -37,11 +37,10 @@ class TSerial(Serial):
     Initialize just like a regular serial connection
     """
 
-    def __init__(self, sleep=None, connection_status_callback=None, queue_length=0, *args, **kwargs):
+    def __init__(self, sleep=None, connection_status_callback=None, *args, **kwargs):
         """
         :param connection_status_callback: Callback to call when the connection status changes
         :param sleep: Number of seconds to sleep when run out of data (setting this will help lower CPU Usage)
-        :param queue_length: The maximum length of the recieve queue. If the queue exceeds this limit,
             a warning will be issued to the log and data will be discarded (0 = unlimited).
         """
         self.sleep = sleep
@@ -55,7 +54,7 @@ class TSerial(Serial):
         self.last_comms = time.time()
         self.thread_running = False
         self._thread_process_running = False
-        self.q = queue.Queue(queue_length)
+        self.q = queue.Queue()
         self.rx_buffer = b''
         self.start()
         self.connection_status_callback(CONNECTION_CONNECTED)

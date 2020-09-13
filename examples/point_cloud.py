@@ -11,7 +11,7 @@ def point_cloud():
     try:
         riq = RadarIQ()
         riq.set_mode(MODE_POINT_CLOUD)
-        riq.set_units('ft', 'ft/s')
+        riq.set_units('m', 'm/s')
         riq.set_frame_rate(5)
         riq.set_distance_filter(0, 10)
         riq.set_angle_filter(-45, 45)

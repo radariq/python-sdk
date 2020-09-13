@@ -13,10 +13,19 @@ def find_com_port():
     """
     Search for one RadarIQ module.
 
-     This return the first RadarIQ module found that is not currently in use.
+    This return the first RadarIQ module found that is not currently in use.
+
+    *Usage:*
+
+    .. code-block:: python
+
+        from radariq import find_com_port
+
+        port = find_com_port()
+        print(port.device)
 
     :return: The port the RadarIQ module is connected to.
-    :rtype: ListPortInfo.
+    :rtype: ListPortInfo
     """
     try:
         ports = find_com_ports()
@@ -29,8 +38,20 @@ def find_com_ports():
     """
     Find the COM port(s) of RadarIQ modules which are not currently in use.
 
+
+    *Usage:*
+
+    .. code-block:: python
+
+        from radariq import find_com_ports()
+
+        ports = find_com_ports()
+        for port in ports:
+            print(port.device)
+
+
     :return: A list of RadarIQ modules.
-    :rtype: a list containing ListPortInfo objects.
+    :rtype: a list of ListPortInfo objects
     """
     raw_ports = list_ports.comports()
 

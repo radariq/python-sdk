@@ -11,7 +11,6 @@ from radariq.TSerial import TSerial, CONNECTION_DISCONNECTED
 import radariq.units_converter as units
 from radariq.port_manager import find_com_port
 import numpy as np
-import traceback
 
 # Capture modes
 MODE_POINT_CLOUD = 0
@@ -32,7 +31,10 @@ DENSITY_VERY_DENSE = 2
 
 # Python output formats
 OUTPUT_LIST = 0
+
+"""Pre"""
 OUTPUT_NUMPY = 1
+"""post"""
 
 log = logging.getLogger('RadarIQ')
 
@@ -40,20 +42,23 @@ log = logging.getLogger('RadarIQ')
 # @todo message type handeling
 class RadarIQ:
     """
-    API Wrapper for RadarIQ
+    API Wrapper for the RadarIQ-M1 sensor
+
+    :param port: COM port the RadarIQ sensor is attached to.
+                 If not supplied, then the sensor is searched for automatically.
+                 eg. /dev/ttyUSBx on Linux or COMx on Windows.
+    :type port: str
+    :param output_format: The format for the outputted points. See `constants`_ for options.
+                          defaults to OUTPUT_LIST.
+    :type output_format: int
+    :param connection_status_callback: (Optional) Function to call when the connection to the RadarIQ sensor changes.
+    :type connection_status_callback: def
     """
 
-    def __init__(self, port=None, output_format=OUTPUT_NUMPY, connection_status_callback=None, *args, **kwargs):
+    def __init__(self, port=None, output_format=OUTPUT_LIST, connection_status_callback=None, *args, **kwargs):
         """
         Initializes a RadarIQ object.
 
-        :param port: COM port the RadarIQ module is attached to.
-                     If not supplied, then the module is searched for automatically
-        :type port: str
-        :param output_format: The format for the outputted points.
-        :type output_format: int
-        :param connection_status_callback: Function to call when the connection to the RadarIQ module changes
-        :type connection_status_callback: def
         """
         if port is None:
             p = find_com_port()
@@ -61,7 +66,7 @@ class RadarIQ:
 
         self.application_connection_status_callback = connection_status_callback
         self.connection = TSerial(port=port, baudrate=115200,
-                                  connection_status_callback=self.connection_status_callback, *args, **kwargs)
+                                  connection_status_callback=self._connection_status_callback, *args, **kwargs)
         self.distance_units = "m"
         self.speed_units = "m/s"
         self.acceleration_units = 'm/s^2'
@@ -75,17 +80,16 @@ class RadarIQ:
         self.statistics = None
 
     def __del__(self):
-        print("destructor called")
         self.close()
-        print("Destructed")
 
     def close(self):
         """
-        Close all RadarIQ connections.
+        Stop the RadarIQ sensor and close serial connection.
+        This should be called as part of a programs shutdown routine.
         """
         try:
             self.stop()
-            time.sleep(0.5) # wait for the module to stop before closing the serial connection
+            time.sleep(0.5)  # wait for the sensor to stop before closing the serial connection
             self.connection.stop()
             self.connection.close()
         except Exception:
@@ -93,7 +97,8 @@ class RadarIQ:
 
     def _send(self, msg):
         """
-        Send a message on to the serial bus
+        Send a message on to the serial bus.
+
         :param msg: message to send
         :type msg: bytes
         """
@@ -115,16 +120,29 @@ class RadarIQ:
             if msg is not None:
                 print("Receiving:", as_hex(msg))
                 if msg[0:1] == int_to_bytes(0x00):  # Message packet. Send to log instead of processing normally
-                    self.process_message(msg)
+                    self._process_message(msg)
                 else:
                     return msg
-        raise Exception("Timeout while reading from the RadarIQ module")
+        raise Exception("Timeout while reading from the RadarIQ sensor")
+
+    def get_mirror(self):
+        """
+        Gets the mirror setting.
+
+        True = data is mirrored in the X-dimension.
+
+        False = no mirroring.
+
+        :return: The mirror status.
+        :rtype: bool
+        """
+        return self.mirror
 
     def set_mirror(self, mirror=False):
         """
-        Enable the X coordinates to be mirrored.
+        Enable the coordinates in the X-dimension to be mirrored.
 
-        :param mirror: set to True to mirror the radar data in the X direction
+        :param mirror: set to True to mirror the radar data in the X direction.
         :type mirror: bool
         """
         self.mirror = mirror
@@ -160,7 +178,7 @@ class RadarIQ:
         except ValueError as err:
             raise ValueError(err)
 
-    def process_message(self, msg):
+    def _process_message(self, msg):
         """
         Process a message onto the python log.
         """
@@ -179,13 +197,13 @@ class RadarIQ:
                 elif message_type in 4:
                     log.error('{} {}'.format(message_code, message))
         except Exception:
-            raise Exception("Failed to process message from the RadarIQ module")
+            raise Exception("Failed to process message from the RadarIQ sensor")
 
     def get_version(self):
         """
         Gets the version of the hardware and firmware.
 
-        :return: The module version (firmware and hardware)
+        :return: The sensor version (firmware and hardware)
         :rtype: dict
         """
         try:
@@ -199,12 +217,12 @@ class RadarIQ:
         except Exception:
             raise Exception("Failed to get version")
 
-    def get_radar_versions(self):
+    def get_radar_application_versions(self):
         """
         Gets the version of the radar applications.
 
         :return: The radar application versions
-        :rtype: str
+        :rtype: dict
         """
         try:
             self._send(pack("<BB", 0x14, 0x00))
@@ -223,9 +241,9 @@ class RadarIQ:
 
     def get_serial_number(self):
         """
-        Gets the serial of the module.
+        Gets the serial of the sensor.
 
-        :return: The modules serial number
+        :return: The sensors serial number
         :rtype: str
         """
         try:
@@ -241,9 +259,9 @@ class RadarIQ:
 
     def reset(self, code):
         """
-        Resets the module.
+        Resets the sensor.
 
-        :param code: The command code 0 = Reboot, 1 = Factory Reset
+        :param code: The reset code. See `Reset codes`_
         :type code: int
         """
         if not 0 <= code <= 1:
@@ -257,13 +275,13 @@ class RadarIQ:
             else:
                 raise Exception("Invalid response")
         except Exception:
-            raise Exception("Failed to reset module")
+            raise Exception("Failed to reset sensor")
 
     def get_frame_rate(self):
         """
-        Gets the frequency with which to capture frames of data(frames/second) from the module.
+        Gets the frequency with which to capture frames of data (frames/second) from the sensor.
 
-        :return: The frame rate as it is set in the module
+        :return: The frame rate as it is set in the sensor
         :rtype: int
         """
         try:
@@ -305,9 +323,9 @@ class RadarIQ:
 
     def get_mode(self):
         """
-        Gets the capture mode from the module.
+        Gets the capture mode from the sensor.
 
-        :return: The capture mode which will be one of MODE_POINT_CLOUD or MODE_OBJECT_TRACKING
+        :return: The capture mode. See `Capture Modes`_
         :rtype: int
         """
         try:
@@ -322,9 +340,9 @@ class RadarIQ:
 
     def set_mode(self, mode):
         """
-        Sets the capture mode for the module.
+        Sets the capture mode for the sensor.
 
-        :param mode: One of MODE_POINT_CLOUD or MODE_OBJECT_TRACKING
+        :param mode: See `Capture Modes`_
         :type mode: int
         :return: None
         """
@@ -347,9 +365,16 @@ class RadarIQ:
     def get_distance_filter(self):
         """
         Gets the distance filter applied to the readings.
+        The units of this filter are those set by :meth:`set_units`
+
 
         :return: The distance filter
-                 eg. ``{"minimum": minimum, "maximum": maximum}``
+
+            .. code-block:: python
+
+                 {"minimum": minimum,
+                  "maximum": maximum}
+
         :rtype: dict
         """
         try:
@@ -368,9 +393,9 @@ class RadarIQ:
         """
         Sets the distance filter applied to the readings.
 
-        :param minimum: The minimum distance (in units as specified by set_units()
+        :param minimum: The minimum distance (in units as specified by :meth:`set_units`)
         :type minimum: number
-        :param maximum: The maximum distance (in units as specified by set_units()
+        :param maximum: The maximum distance (in units as specified by :meth:`set_units`)
         :type maximum: number
         """
         minimum = int(units.convert_distance_to_si(self.distance_units, minimum) * 1000)
@@ -386,7 +411,6 @@ class RadarIQ:
             raise ValueError("Distance filter maximum must be greater than the minimum")
 
         try:
-
             self._send(pack("<BBHH", 0x06, 0x02, minimum, maximum))
             res = unpack("<BBHH", self._read())
             if res[0] == 0x06 and res[1] == 0x01:
@@ -401,9 +425,16 @@ class RadarIQ:
 
     def get_angle_filter(self):
         """
-        Gets the angle filter applied to the readings.
+        Gets the angle filter applied to the readings (in degrees).
 
-        :return: The angle filter. eg. ``{"minimum": minimum, "maximum": maximum}``
+        0 degrees is center, negative angles are to the left of the sensor, positive angles are to the right.
+
+        :return: The angle filter.
+         .. code-block:: python
+
+            {"minimum": minimum,
+             "maximum": maximum}
+
         :rtype: dict
         """
         try:
@@ -418,7 +449,10 @@ class RadarIQ:
 
     def set_angle_filter(self, minimum, maximum):
         """
-        Sets the angle filter to apply to the readings.
+        Sets the angle filter to apply to the readings (in degrees).
+
+        0 degrees is center, negative angles are to the left of the sensor, positive angles are to the right.
+
 
         :param minimum: The minimum angle (-60 to +60)
         :type minimum: int
@@ -448,7 +482,7 @@ class RadarIQ:
         """
         Gets the moving objects filter applied to the readings.
 
-        :return: moving filter
+        :return: moving filter. See `Moving filter`_
         :rtype: str
         """
         try:
@@ -486,7 +520,7 @@ class RadarIQ:
 
     def save(self):
         """
-        Saves the settings to the module.
+        Saves the settings to the sensor.
         """
         try:
             self._send(pack("<BB", 0x09, 0x02))
@@ -502,7 +536,7 @@ class RadarIQ:
         """
         Gets the point density setting.
 
-        :return: Point density
+        :return: Point density. See `Point Density Options`_
         :rtype: int
         """
         try:
@@ -519,7 +553,7 @@ class RadarIQ:
         """
         Sets the point density setting.
 
-        :param density: The point density to set
+        :param density: The point density to set. See `Point Density Options`_
         :type density: int
         """
         if not 0 <= density <= 2:
@@ -540,9 +574,9 @@ class RadarIQ:
 
     def get_certainty(self):
         """
-        Gets the point certainty setting.
+        Get the point certainty setting.
 
-        :return: Certainty setting
+        :return: Certainty setting. See `Certainty values`_.
         :rtype: int
         """
         try:
@@ -559,7 +593,7 @@ class RadarIQ:
         """
         Sets the the certainty setting to apply to the readings.
 
-        :param certainty: The certainty setting to set
+        :param certainty: The certainty setting to set. See `Certainty values`_.
         :type certainty: int
         """
         if not (isinstance(certainty, int) and 0 <= certainty <= 9):
@@ -581,9 +615,15 @@ class RadarIQ:
     def get_height_filter(self):
         """
         Gets the height filter applied to the readings.
+        The units of this filter are those set by :meth:`set_units`
 
         :return: The height filter
-                 eg. ``{"minimum": minimum, "maximum": maximum}``
+
+            .. code-block:: python
+
+                {"minimum": minimum,
+                "maximum": maximum}
+
         :rtype: dict
         """
         try:
@@ -665,102 +705,157 @@ class RadarIQ:
             raise Exception("Failed to stop data capture")
         self.is_capturing = False
 
-    def get_data(self, timeout=10):
+    def get_data(self, timeout=1):
         """
-        Fetches data from the queue.
+        Fetches data from the RadarIQ sensor.
 
-        :param timeout: Maximum of seconds to wait for data.
+        :meth:`get_data` is a generator, which means it should be used like an iterable:
+
+        .. code-block:: python
+
+            for frame in get_data():
+                print(frame)
+            print ("The generator stops when there is no more data")
+
+
+        The return type from :meth:`get_data` depends on the output_type set during the initialisation of this class
+        and the mode the sensor is in (point cloud or object tracking).
+
+        **Point Cloud**
+
+        *As a list OR ndarray:*
+
+        .. code-block:: python
+
+            [[x, y, z, speed, intensity]..]
+
+        **Object Tracking**
+
+        *As a list:*
+
+        .. code-block:: python
+
+            [{'tracking_id': tracking_id,
+              'x_pos': x_pos,
+              'y_pos': y_pos,
+              'z_pos': z_pos,
+              'x_vel': x_vel,
+              'y_vel': y_vel,
+              'z_vel': z_vel,
+              'x_acc': x_acc,
+              'y_acc': y_acc,
+              'z_acc': z_acc,
+            }]
+
+        *As an ndarray:*
+
+        .. code-block:: python
+
+            [[tracking_id,x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, x_acc,y_acc, z_acc]...]
+
+        :param timeout: Maximum of seconds to wait for data before yielding.
+                        get_data will block until there is data available. If there is no data after `timeout` seconds
+                        get_data will yeild with None.
         :return: A frame of data
         :rtype: a python list, numpy ndarray or None (on timeout)
         """
 
-        mirror = 1 if self.mirror is False else -1 # multiplier for mirroring x-data
+        mirror = 1 if self.mirror is False else -1  # multiplier for mirroring x-data
+
         if timeout <= 0:
             raise Exception("Timeout must be greater than 0")
 
         last_data_time = time.time()
         rx_frame = []
         while self.is_capturing is True:
-            if time.time() < (last_data_time + timeout):
+
+            if time.time() > (last_data_time + timeout):
+                last_data_time = time.time()
                 yield
-            try:
-                subframe = self.connection.read_from_queue()
-                if subframe is not None:
-                    (command, variant) = unpack("<BB", subframe[:2])
-                    if command == 0x68 and variant == 0x01:  # is statistics packet
-                        self.process_statistics(subframe)
+            else:
+                try:
+                    subframe = self.connection.read_from_queue()
+                    if subframe is not None:
+                        (command, variant) = unpack("<BB", subframe[:2])
+                        if command == 0x68 and variant == 0x01:  # is statistics packet
+                            self._process_statistics(subframe)
 
-                    elif command == 0x66 and variant == 0x01:  # is a point cloud packet
-                        (subframe_type, count) = unpack("<BB", subframe[2:4])
+                        elif command == 0x66 and variant == 0x01:  # is a point cloud packet
+                            (subframe_type, count) = unpack("<BB", subframe[2:4])
 
-                        unpacking = "<" + "hhhB" * count
-                        unpacked = unpack(unpacking, subframe[4:])
-                        idx = 0
-                        for cnt in range(count):
-                            # SI units are needed so convert mm to m
-                            rx_frame.append([mirror * units.convert_distance_from_si(self.distance_units, unpacked[idx] / 1000),
-                                             units.convert_distance_from_si(self.distance_units,
-                                                                            unpacked[idx + 1] / 1000),
-                                             units.convert_distance_from_si(self.distance_units,
-                                                                            unpacked[idx + 2] / 1000),
-                                             unpacked[idx + 3]])
-                            idx += 4
+                            unpacking = "<" + "hhhB" * count
+                            unpacked = unpack(unpacking, subframe[4:])
+                            idx = 0
+                            for cnt in range(count):
+                                # SI units are needed so convert mm to m
+                                rx_frame.append(
+                                    [mirror * units.convert_distance_from_si(self.distance_units, unpacked[idx] / 1000),
+                                     units.convert_distance_from_si(self.distance_units,
+                                                                    unpacked[idx + 1] / 1000),
+                                     units.convert_distance_from_si(self.distance_units,
+                                                                    unpacked[idx + 2] / 1000),
+                                     unpacked[idx + 3]])
+                                idx += 4
 
-                        if subframe_type == 0x02:  # End of frame
-                            self.capture_count += 1
-                            if self.output_format == OUTPUT_LIST:  # @todo put tests around this
-                                yield rx_frame
-                            elif self.output_format == OUTPUT_NUMPY:
-                                yield self._convert_pointcloud_to_numpy(rx_frame)
+                            if subframe_type == 0x02:  # End of frame
+                                self.capture_count += 1
+                                if self.output_format == OUTPUT_LIST:  # @todo put tests around this
+                                    yield rx_frame
+                                elif self.output_format == OUTPUT_NUMPY:
+                                    yield self._convert_pointcloud_to_numpy(rx_frame)
 
-                            rx_frame = []  # clear the buffer now the frame has been sent
+                                rx_frame = []  # clear the buffer now the frame has been sent
 
-                        if 0 < self.capture_max == self.capture_count:
-                            break
+                            if 0 < self.capture_max == self.capture_count:
+                                break
 
-                        last_data_time = time.time()
-                    elif command == 0x67 and variant == 0x01:  # is an object packet
-                        (subframe_type, count) = unpack("<BB", subframe[2:4])
-                        unpacking = "<" + "b9h" * count
-                        unpacked = unpack(unpacking, subframe[4:])
-                        idx = 0
-                        for cnt in range(count):
-                            # SI units are needed so convert mm to m
+                            last_data_time = time.time()
+                        elif command == 0x67 and variant == 0x01:  # is an object packet
+                            (subframe_type, count) = unpack("<BB", subframe[2:4])
+                            unpacking = "<" + "b9h" * count
+                            unpacked = unpack(unpacking, subframe[4:])
+                            idx = 0
+                            for cnt in range(count):
+                                # SI units are needed so convert mm to m
 
-                            rx_frame.append(
-                                {'tracking_id': unpacked[idx],
-                                 'x_pos': mirror * units.convert_distance_from_si(self.distance_units, unpacked[idx + 1] / 1000),
-                                 'y_pos': units.convert_distance_from_si(self.distance_units, unpacked[idx + 2] / 1000),
-                                 'z_pos': units.convert_distance_from_si(self.distance_units, unpacked[idx + 3] / 1000),
-                                 'x_vel': mirror * units.convert_speed_from_si(self.speed_units, unpacked[idx + 4] / 1000),
-                                 'y_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 5] / 1000),
-                                 'z_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 6] / 1000),
-                                 'x_acc': mirror * units.convert_acceleration_from_si(self.acceleration_units,
-                                                                             unpacked[idx + 7] / 1000),
-                                 'y_acc': units.convert_acceleration_from_si(self.acceleration_units,
-                                                                             unpacked[idx + 8] / 1000),
-                                 'z_acc': units.convert_acceleration_from_si(self.acceleration_units,
-                                                                             unpacked[idx + 9] / 1000)
-                                 })
-                            idx += 10
+                                rx_frame.append(
+                                    {'tracking_id': unpacked[idx],
+                                     'x_pos': mirror * units.convert_distance_from_si(self.distance_units,
+                                                                                      unpacked[idx + 1] / 1000),
+                                     'y_pos': units.convert_distance_from_si(self.distance_units,
+                                                                             unpacked[idx + 2] / 1000),
+                                     'z_pos': units.convert_distance_from_si(self.distance_units,
+                                                                             unpacked[idx + 3] / 1000),
+                                     'x_vel': mirror * units.convert_speed_from_si(self.speed_units,
+                                                                                   unpacked[idx + 4] / 1000),
+                                     'y_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 5] / 1000),
+                                     'z_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 6] / 1000),
+                                     'x_acc': mirror * units.convert_acceleration_from_si(self.acceleration_units,
+                                                                                          unpacked[idx + 7] / 1000),
+                                     'y_acc': units.convert_acceleration_from_si(self.acceleration_units,
+                                                                                 unpacked[idx + 8] / 1000),
+                                     'z_acc': units.convert_acceleration_from_si(self.acceleration_units,
+                                                                                 unpacked[idx + 9] / 1000)
+                                     })
+                                idx += 10
 
-                        if subframe_type == 0x02:  # End of frame
-                            self.capture_count += 1
-                            if self.output_format == OUTPUT_LIST:  # @todo put tests around this
-                                yield rx_frame
-                            elif self.output_format == OUTPUT_NUMPY:
-                                yield self._convert_object_tracking_to_numpy(rx_frame)
+                            if subframe_type == 0x02:  # End of frame
+                                self.capture_count += 1
+                                if self.output_format == OUTPUT_LIST:  # @todo put tests around this
+                                    yield rx_frame
+                                elif self.output_format == OUTPUT_NUMPY:
+                                    yield self._convert_object_tracking_to_numpy(rx_frame)
 
-                            rx_frame = []  # clear the buffer now the frame has been sent
+                                rx_frame = []  # clear the buffer now the frame has been sent
 
-                        if 0 < self.capture_max == self.capture_count:
-                            break
+                            if 0 < self.capture_max == self.capture_count:
+                                break
 
-                        last_data_time = time.time()
-                    else:
-                        pass
-            except ValueError:
-                pass
+                            last_data_time = time.time()
+                        else:
+                            pass
+                except ValueError:
+                    pass
         self.stop()
 
     def _convert_pointcloud_to_numpy(self, frame):
@@ -803,12 +898,12 @@ class RadarIQ:
             data[idx][9] = obj["z_acc"]
         return data
 
-    def process_statistics(self, frame):
+    def _process_statistics(self, frame):
         """
         Process the statistics packet into a dictionary.
         
         :param frame: Frame of binary data
-        :type: frame: bytes
+        :type frame: bytes
         """
         d = {}
         (d['active_frame_cpu'], d['inter_frame_cpu'], d['inter_frame_proc_time'], d['transmit_output_time'],
@@ -831,7 +926,7 @@ class RadarIQ:
         """
         Get the latest packet statistics.
         
-        :return: Statistics about the module perforance
+        :return: Statistics about the sensor performance
         :rtype: dict
         """
         if self.statistics is not None:
@@ -847,14 +942,15 @@ class RadarIQ:
 
         This is the number of packets recieved but not yet processed.
 
-        :return: the size of the queue
+        :return: The size of the queue
         :rtype: int
         """
         return self.connection.q.qsize()
 
-    def connection_status_callback(self, status):
+    def _connection_status_callback(self, status):
         """
-        Respond to the serial connection becoming disconnected
+        Respond to the serial connection becoming disconnected.
+
         :param status: The serial connection status code
         """
         if status == CONNECTION_DISCONNECTED:
