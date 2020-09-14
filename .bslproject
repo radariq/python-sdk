@@ -1,0 +1,19 @@
+[PROJECT]
+name = RadarIQ Python SDK
+
+[VERSIONING]
+# Files which should be updated with version information on release. One per line
+files=release.bat
+      setup.py
+      docs/source/conf.py
+      
+# The variable names which should be updated with version information on release. One per line
+# Note: Variants of the variable are also supported as well as C, Python, and NSI syntax.
+#   FIRMWARE_VERSION is a string eg. "1.2.3"
+#   FIRMWARE_VERSION_MAJOR is an integer eg. 1
+#   FIRMWARE_VERSION_MINOR is an integer eg. 2
+#   FIRMWARE_VERSION_BUILD is an integer eg. 3
+variable=version
+
+[RELEASE]
+script=release.bat

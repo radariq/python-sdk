@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='radariq',
-    version='1.5',
+    version='1.0.5',
     author='RadarIQ Ltd',
     author_email='support@radariq.io',
     description='Python wrapper for the RadarIQ Module',
