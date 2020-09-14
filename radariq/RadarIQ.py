@@ -31,10 +31,11 @@ DENSITY_VERY_DENSE = 2
 
 # Python output formats
 OUTPUT_LIST = 0
-
-"""Pre"""
 OUTPUT_NUMPY = 1
-"""post"""
+
+# Constants
+WARN_QUEUE_SIZE = 10  # Warn when the queue is larger than this
+WARN_CHECK_PERIOD = 10  # seconds
 
 log = logging.getLogger('RadarIQ')
 
@@ -78,6 +79,7 @@ class RadarIQ:
         self.capture_mode = MODE_POINT_CLOUD
         self.output_format = output_format
         self.statistics = None
+        self.last_warn_time = time.time()
 
     def __del__(self):
         self.close()
@@ -850,10 +852,18 @@ class RadarIQ:
 
                             if 0 < self.capture_max == self.capture_count:
                                 break
-
-                            last_data_time = time.time()
                         else:
                             pass
+
+                        # Warnings if the queue is getting too long
+                        if (self.last_warn_time + WARN_CHECK_PERIOD) < time.time():
+                            if self.get_queue_size() > WARN_QUEUE_SIZE:
+                                log.warning(
+                                    "The queue size is larger than {}. The RadarIQ sensor is producing data faster than the application is consuming it.".format(
+                                        WARN_QUEUE_SIZE))
+                            self.last_warn_time = time.time()
+
+                        last_data_time = time.time()
                 except ValueError:
                     pass
         self.stop()
