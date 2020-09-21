@@ -6,6 +6,8 @@
 from __future__ import division
 import logging
 import time
+import threading
+import queue
 from radariq.compatability import pack, unpack, as_hex, int_to_bytes
 from radariq.TSerial import TSerial, CONNECTION_DISCONNECTED
 import radariq.units_converter as units
@@ -33,10 +35,6 @@ DENSITY_VERY_DENSE = 2
 OUTPUT_LIST = 0
 OUTPUT_NUMPY = 1
 
-# Constants
-WARN_QUEUE_SIZE = 10  # Warn when the queue is larger than this
-WARN_CHECK_PERIOD = 10  # seconds
-
 log = logging.getLogger('RadarIQ')
 
 
@@ -54,9 +52,16 @@ class RadarIQ:
     :type output_format: int
     :param connection_status_callback: (Optional) Function to call when the connection to the RadarIQ sensor changes.
     :type connection_status_callback: def
+    :param queue_length: The maximum length of the data queue.
+                         Set to 0 to buffer all data until it has been processed or set to a lower number to discard
+                         data if the queue is too long.
+                         This is useful to prevent the data getting out of sync with reality if the consuming
+                         application is not consuming the data fast enough.
+    :type queue_length: int
     """
 
-    def __init__(self, port=None, output_format=OUTPUT_LIST, connection_status_callback=None, *args, **kwargs):
+    def __init__(self, port=None, output_format=OUTPUT_LIST, connection_status_callback=None, queue_length=2, *args,
+                 **kwargs):
         """
         Initializes a RadarIQ object.
 
@@ -68,6 +73,7 @@ class RadarIQ:
         self.application_connection_status_callback = connection_status_callback
         self.connection = TSerial(port=port, baudrate=115200,
                                   connection_status_callback=self._connection_status_callback, *args, **kwargs)
+        self.data_queue = queue.Queue(queue_length)
         self.distance_units = "m"
         self.speed_units = "m/s"
         self.acceleration_units = 'm/s^2'
@@ -79,7 +85,6 @@ class RadarIQ:
         self.capture_mode = MODE_POINT_CLOUD
         self.output_format = output_format
         self.statistics = None
-        self.last_warn_time = time.time()
 
     def __del__(self):
         self.close()
@@ -690,10 +695,14 @@ class RadarIQ:
         try:
             if clear_buffer is True:
                 self.connection.emtpy_queue()
+                self.data_queue.empty()
             self._send(pack("<BBB", 0x64, 0x00, samples))
             self.is_capturing = True
+            t = threading.Thread(target=self._get_data_thread)
+            t.start()
             self.capture_max = samples
             self.capture_count = 0
+
         except Exception:
             raise Exception("Failed to start data capture")
 
@@ -707,7 +716,7 @@ class RadarIQ:
             raise Exception("Failed to stop data capture")
         self.is_capturing = False
 
-    def get_data(self, timeout=1):
+    def get_data(self):
         """
         Fetches data from the RadarIQ sensor.
 
@@ -761,111 +770,111 @@ class RadarIQ:
         :return: A frame of data
         :rtype: a python list, numpy ndarray or None (on timeout)
         """
+        while self.is_capturing:
+            try:
+                yield self.data_queue.get_nowait()
+            except queue.Empty:
+                yield None
 
+    def _get_data_thread(self):
         mirror = 1 if self.mirror is False else -1  # multiplier for mirroring x-data
-
-        if timeout <= 0:
-            raise Exception("Timeout must be greater than 0")
-
-        last_data_time = time.time()
         rx_frame = []
+
         while self.is_capturing is True:
+            try:
+                subframe = self.connection.read_from_queue()
+                if subframe is not None:
+                    (command, variant) = unpack("<BB", subframe[:2])
+                    if command == 0x68 and variant == 0x01:  # is statistics packet
+                        self._process_statistics(subframe)
 
-            if time.time() > (last_data_time + timeout):
-                last_data_time = time.time()
-                yield
-            else:
-                try:
-                    subframe = self.connection.read_from_queue()
-                    if subframe is not None:
-                        (command, variant) = unpack("<BB", subframe[:2])
-                        if command == 0x68 and variant == 0x01:  # is statistics packet
-                            self._process_statistics(subframe)
+                    elif command == 0x66 and variant == 0x01:  # is a point cloud packet
+                        (subframe_type, count) = unpack("<BB", subframe[2:4])
 
-                        elif command == 0x66 and variant == 0x01:  # is a point cloud packet
-                            (subframe_type, count) = unpack("<BB", subframe[2:4])
+                        unpacking = "<" + "hhhB" * count
+                        unpacked = unpack(unpacking, subframe[4:])
+                        idx = 0
+                        for cnt in range(count):
+                            # SI units are needed so convert mm to m
+                            rx_frame.append(
+                                [mirror * units.convert_distance_from_si(self.distance_units, unpacked[idx] / 1000),
+                                 units.convert_distance_from_si(self.distance_units,
+                                                                unpacked[idx + 1] / 1000),
+                                 units.convert_distance_from_si(self.distance_units,
+                                                                unpacked[idx + 2] / 1000),
+                                 unpacked[idx + 3]])
+                            idx += 4
 
-                            unpacking = "<" + "hhhB" * count
-                            unpacked = unpack(unpacking, subframe[4:])
-                            idx = 0
-                            for cnt in range(count):
-                                # SI units are needed so convert mm to m
-                                rx_frame.append(
-                                    [mirror * units.convert_distance_from_si(self.distance_units, unpacked[idx] / 1000),
-                                     units.convert_distance_from_si(self.distance_units,
-                                                                    unpacked[idx + 1] / 1000),
-                                     units.convert_distance_from_si(self.distance_units,
-                                                                    unpacked[idx + 2] / 1000),
-                                     unpacked[idx + 3]])
-                                idx += 4
+                        if subframe_type == 0x02:  # End of frame
+                            self.capture_count += 1
+                            if self.output_format == OUTPUT_LIST:  # @todo put tests around this
+                                data = rx_frame
+                            elif self.output_format == OUTPUT_NUMPY:
+                                data = self._convert_pointcloud_to_numpy(rx_frame)
+                            else:
+                                data = None
 
-                            if subframe_type == 0x02:  # End of frame
-                                self.capture_count += 1
-                                if self.output_format == OUTPUT_LIST:  # @todo put tests around this
-                                    yield rx_frame
-                                elif self.output_format == OUTPUT_NUMPY:
-                                    yield self._convert_pointcloud_to_numpy(rx_frame)
+                            try:
+                                self.data_queue.put_nowait(data)
+                            except queue.Full:
+                                pass
 
-                                rx_frame = []  # clear the buffer now the frame has been sent
+                            rx_frame = []  # clear the buffer now the frame has been sent
 
-                            if 0 < self.capture_max == self.capture_count:
-                                break
+                        if 0 < self.capture_max == self.capture_count:
+                            break
 
-                            last_data_time = time.time()
-                        elif command == 0x67 and variant == 0x01:  # is an object packet
-                            (subframe_type, count) = unpack("<BB", subframe[2:4])
-                            unpacking = "<" + "b9h" * count
-                            unpacked = unpack(unpacking, subframe[4:])
-                            idx = 0
-                            for cnt in range(count):
-                                # SI units are needed so convert mm to m
+                    elif command == 0x67 and variant == 0x01:  # is an object packet
+                        (subframe_type, count) = unpack("<BB", subframe[2:4])
+                        unpacking = "<" + "b9h" * count
+                        unpacked = unpack(unpacking, subframe[4:])
+                        idx = 0
+                        for cnt in range(count):
+                            # SI units are needed so convert mm to m
 
-                                rx_frame.append(
-                                    {'tracking_id': unpacked[idx],
-                                     'x_pos': mirror * units.convert_distance_from_si(self.distance_units,
-                                                                                      unpacked[idx + 1] / 1000),
-                                     'y_pos': units.convert_distance_from_si(self.distance_units,
-                                                                             unpacked[idx + 2] / 1000),
-                                     'z_pos': units.convert_distance_from_si(self.distance_units,
-                                                                             unpacked[idx + 3] / 1000),
-                                     'x_vel': mirror * units.convert_speed_from_si(self.speed_units,
-                                                                                   unpacked[idx + 4] / 1000),
-                                     'y_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 5] / 1000),
-                                     'z_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 6] / 1000),
-                                     'x_acc': mirror * units.convert_acceleration_from_si(self.acceleration_units,
-                                                                                          unpacked[idx + 7] / 1000),
-                                     'y_acc': units.convert_acceleration_from_si(self.acceleration_units,
-                                                                                 unpacked[idx + 8] / 1000),
-                                     'z_acc': units.convert_acceleration_from_si(self.acceleration_units,
-                                                                                 unpacked[idx + 9] / 1000)
-                                     })
-                                idx += 10
+                            rx_frame.append(
+                                {'tracking_id': unpacked[idx],
+                                 'x_pos': mirror * units.convert_distance_from_si(self.distance_units,
+                                                                                  unpacked[idx + 1] / 1000),
+                                 'y_pos': units.convert_distance_from_si(self.distance_units,
+                                                                         unpacked[idx + 2] / 1000),
+                                 'z_pos': units.convert_distance_from_si(self.distance_units,
+                                                                         unpacked[idx + 3] / 1000),
+                                 'x_vel': mirror * units.convert_speed_from_si(self.speed_units,
+                                                                               unpacked[idx + 4] / 1000),
+                                 'y_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 5] / 1000),
+                                 'z_vel': units.convert_speed_from_si(self.speed_units, unpacked[idx + 6] / 1000),
+                                 'x_acc': mirror * units.convert_acceleration_from_si(self.acceleration_units,
+                                                                                      unpacked[idx + 7] / 1000),
+                                 'y_acc': units.convert_acceleration_from_si(self.acceleration_units,
+                                                                             unpacked[idx + 8] / 1000),
+                                 'z_acc': units.convert_acceleration_from_si(self.acceleration_units,
+                                                                             unpacked[idx + 9] / 1000)
+                                 })
+                            idx += 10
 
-                            if subframe_type == 0x02:  # End of frame
-                                self.capture_count += 1
-                                if self.output_format == OUTPUT_LIST:  # @todo put tests around this
-                                    yield rx_frame
-                                elif self.output_format == OUTPUT_NUMPY:
-                                    yield self._convert_object_tracking_to_numpy(rx_frame)
+                        if subframe_type == 0x02:  # End of frame
+                            self.capture_count += 1
+                            if self.output_format == OUTPUT_LIST:  # @todo put tests around this
+                                data = rx_frame
+                            elif self.output_format == OUTPUT_NUMPY:
+                                data = self._convert_object_tracking_to_numpy(rx_frame)
+                            else:
+                                data = None
 
-                                rx_frame = []  # clear the buffer now the frame has been sent
+                            try:
+                                self.data_queue.put_nowait(data)
+                            except queue.Full:
+                                pass
+                            rx_frame = []  # clear the buffer now the frame has been sent
 
-                            if 0 < self.capture_max == self.capture_count:
-                                break
-                        else:
-                            pass
-
-                        # Warnings if the queue is getting too long
-                        if (self.last_warn_time + WARN_CHECK_PERIOD) < time.time():
-                            if self.get_queue_size() > WARN_QUEUE_SIZE:
-                                log.warning(
-                                    "The queue size is larger than {}. The RadarIQ sensor is producing data faster than the application is consuming it.".format(
-                                        WARN_QUEUE_SIZE))
-                            self.last_warn_time = time.time()
-
-                        last_data_time = time.time()
-                except ValueError:
-                    pass
+                        if 0 < self.capture_max == self.capture_count:
+                            break
+                    else:
+                        pass
+                time.sleep(0.01)
+            except ValueError:
+                pass
         self.stop()
 
     def _convert_pointcloud_to_numpy(self, frame):
@@ -948,14 +957,14 @@ class RadarIQ:
 
     def get_queue_size(self):
         """
-        Get the size of the recieve queue.
+        Get the size of the data queue.
 
-        This is the number of packets recieved but not yet processed.
+        This is the number of packets received but not yet processed.
 
         :return: The size of the queue
         :rtype: int
         """
-        return self.connection.q.qsize()
+        return self.data_queue.qsize()
 
     def _connection_status_callback(self, status):
         """

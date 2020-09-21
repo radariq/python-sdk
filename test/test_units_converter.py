@@ -160,32 +160,32 @@ class TestAccelerationConversions(unittest.TestCase):
 
     def test_convert_from_meters_per_square_second_to_meters_per_square_second(self):
         # Test the identity conversion
-        converted = units.convert_acceleration_to_si('m/s²', 1.001)
+        converted = units.convert_acceleration_to_si('m/s^2', 1.001)
         self.assertEqual(1.001, converted)
 
     def test_convert_from_mm_per_square_second_to_meters_per_square_second(self):
         # Test conversions of accelerations to SI units
-        converted = units.convert_acceleration_to_si('mm/s²', 11)
+        converted = units.convert_acceleration_to_si('mm/s^2', 11)
         self.assertEqual(0.011, converted)
 
     def test_convert_from_ft_per_square_second_to_meters_per_square_second(self):
         # Test conversions of accelerations to SI units
-        converted = units.convert_acceleration_to_si('ft/s²', 23)
+        converted = units.convert_acceleration_to_si('ft/s^2', 23)
         self.assertEqual(7.01, converted)
 
     def test_convert_from_meters_per_square_second_to_meters_per_square_second2(self):
         # Test the identity conversion
-        converted = units.convert_acceleration_from_si('m/s²', 1.001)
+        converted = units.convert_acceleration_from_si('m/s^2', 1.001)
         self.assertEqual(1.001, converted)
 
     def test_convert_from_meters_per_square_second_to_mm_per_aquare_second(self):
         # Test conversions of accelerations to SI units
-        converted = units.convert_acceleration_from_si('mm/s²', 1.05)
+        converted = units.convert_acceleration_from_si('mm/s^2', 1.05)
         self.assertEqual(1050, converted)
 
     def test_convert_from_meters_per_square_second_to_ft_per_square_second(self):
         # Test conversions of accelerations to SI units
-        converted = units.convert_acceleration_from_si('ft/s²', 7)
+        converted = units.convert_acceleration_from_si('ft/s^2', 7)
         self.assertEqual(22.97, converted)
 
     def test_error_case(self):
