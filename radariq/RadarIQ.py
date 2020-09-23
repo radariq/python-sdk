@@ -86,8 +86,15 @@ class RadarIQ:
         self.output_format = output_format
         self.statistics = None
 
+        self.clean_start()
+
     def __del__(self):
         self.close()
+
+    def clean_start(self):
+        self.stop()
+        time.sleep(0.5)  # wait for the sensor to stop (if it is running)
+        self.connection.emtpy_queue()
 
     def close(self):
         """
@@ -718,7 +725,7 @@ class RadarIQ:
 
     def get_data(self):
         """
-        Fetches data from the RadarIQ sensor.
+        Fetches data from the RadarIQ sensor as a generator.
 
         :meth:`get_data` is a generator, which means it should be used like an iterable:
 
@@ -764,17 +771,36 @@ class RadarIQ:
 
             [[tracking_id,x_pos, y_pos, z_pos, x_vel, y_vel, z_vel, x_acc,y_acc, z_acc]...]
 
-        :param timeout: Maximum of seconds to wait for data before yielding.
-                        get_data will block until there is data available. If there is no data after `timeout` seconds
-                        get_data will yeild with None.
         :return: A frame of data
-        :rtype: a python list, numpy ndarray or None (on timeout)
+        :rtype: a python list, numpy ndarray or None
         """
         while self.is_capturing:
             try:
                 yield self.data_queue.get_nowait()
             except queue.Empty:
                 yield None
+
+    def get_frame(self):
+        """
+        Fetches a signle frame of data from the RadarIQ sensor.
+
+        :meth:`get_frame` should be used like this:
+
+        .. code-block:: python
+
+            while True:
+                frame = get_frame():
+                if frame is not None:
+                    print(frame)
+
+        The return type from :meth:`get_frame` is the same as :meth:`get_data`
+        :return: A frame of data
+        :rtype: a python list, numpy ndarray or None
+        """
+        try:
+            return self.data_queue.get_nowait()
+        except queue.Empty:
+            return None
 
     def _get_data_thread(self):
         mirror = 1 if self.mirror is False else -1  # multiplier for mirroring x-data
