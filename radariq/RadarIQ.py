@@ -84,7 +84,10 @@ class RadarIQ:
         self.timeout = 5
         self.capture_mode = MODE_POINT_CLOUD
         self.output_format = output_format
-        self.statistics = None
+        self.statistics = {'core': None,
+                           'point_cloud': None,
+                           'rx_buffer_length': None,
+                           'rx_packet_queue': None}
 
         self.clean_start()
 
@@ -687,6 +690,23 @@ class RadarIQ:
         except Exception:
             raise Exception("Failed to set height filter")
 
+    def scene_calibration(self):
+        """
+        Calibrate the sensor to remove any near-field objects from the scene.
+
+        This is useful to:
+        * Remove effects of an enclosure
+        * Hide static objects directly in front of the sensor
+
+        To use this feature, mount the sensor, ensure that there are no objects within 1m of the sensor then run
+        :meth:`scene_calibration`. Once run the scene calibration will be saved to the sensor
+        """
+        try:
+            self._send(pack("<BB", 0x15, 0x03))
+            _ = self._read()
+        except Exception:
+            raise Exception("Failed to perform scene calibration")
+
     def start(self, samples=0, clear_buffer=True):
         """
         Start to capture data into the queue. To fetch data use get_data() and to stop capture call stop_capture().
@@ -745,7 +765,7 @@ class RadarIQ:
 
         .. code-block:: python
 
-            [[x, y, z, speed, intensity]..]
+            [[x, y, z, speed, intensity, velocity]..]
 
         **Object Tracking**
 
@@ -812,12 +832,12 @@ class RadarIQ:
                 if subframe is not None:
                     (command, variant) = unpack("<BB", subframe[:2])
                     if command == 0x68 and variant == 0x01:  # is statistics packet
-                        self._process_statistics(subframe)
+                        self._process_statistics(command, subframe)
 
                     elif command == 0x66 and variant == 0x01:  # is a point cloud packet
                         (subframe_type, count) = unpack("<BB", subframe[2:4])
 
-                        unpacking = "<" + "hhhB" * count
+                        unpacking = "<" + "hhhBh" * count
                         unpacked = unpack(unpacking, subframe[4:])
                         idx = 0
                         for cnt in range(count):
@@ -828,8 +848,10 @@ class RadarIQ:
                                                                 unpacked[idx + 1] / 1000),
                                  units.convert_distance_from_si(self.distance_units,
                                                                 unpacked[idx + 2] / 1000),
-                                 unpacked[idx + 3]])
-                            idx += 4
+                                 unpacked[idx + 3],
+                                 units.convert_speed_from_si(self.speed_units,
+                                                             unpacked[idx + 4] / 1000)])
+                            idx += 5
 
                         if subframe_type == 0x02:  # End of frame
                             self.capture_count += 1
@@ -943,29 +965,40 @@ class RadarIQ:
             data[idx][9] = obj["z_acc"]
         return data
 
-    def _process_statistics(self, frame):
+    def _process_statistics(self, packet_type, frame):
         """
         Process the statistics packet into a dictionary.
         
+        :param packet_type: The type of statistics packet to process
+        :type packet_type: int
         :param frame: Frame of binary data
         :type frame: bytes
         """
-        d = {}
-        (d['active_frame_cpu'], d['inter_frame_cpu'], d['inter_frame_proc_time'], d['transmit_output_time'],
-         d['inter_frame_proc_margin'], d['inter_chirp_proc_margin'], d['points_aggregation_time'],
-         d['intensity_sort_time'], d['nearest_neighbours_time'], d['packet_transmit_time'],
-         d['filter_points_removed'], d['num_transmitted_points'], d['input_points_truncated'],
-         d['output_points_truncated'], d['temperature_sensor_0'], d['temperature_sensor_1'],
-         d['temperature_power_management'], d['temperature_rx_0'], d['temperature_rx_1'],
-         d['temperature_rx_2'], d['temperature_rx_3'], d['temperature_tx_0'], d['temperature_tx_1'],
-         d['temperature_tx_2'],
+        if packet_type == 0x68:  # Core
+            core = {}
+            (core['active_frame_cpu'], core['inter_frame_cpu'], core['inter_frame_proc_time'],
+             core['transmit_output_time'],
+             core['inter_frame_proc_margin'], core['inter_chirp_proc_margin'], core['packet_transmit_time'],
+             core['temperature_sensor_0'], core['temperature_sensor_1'],
+             core['temperature_power_management'], core['temperature_rx_0'], core['temperature_rx_1'],
+             core['temperature_rx_2'], core['temperature_rx_3'], core['temperature_tx_0'], core['temperature_tx_1'],
+             core['temperature_tx_2'],
+             ) = unpack("<7L10h", frame[2:])
 
-         ) = unpack("<12L2B10h", frame[2:])
+            self.statistics['core'] = core
 
-        d['rx_buffer_length'] = len(self.connection.rx_buffer)
-        d['rx_packet_queue'] = self.get_queue_size()
+        elif packet_type == 0x70:  # Point Cloud
+            ptcld = {}
+            (ptcld['points_aggregation_time'],
+             ptcld['intensity_sort_time'], ptcld['nearest_neighbours_time'],
+             ptcld['filter_points_removed'], ptcld['num_transmitted_points'], ptcld['input_points_truncated'],
+             ptcld['output_points_truncated']
+             ) = unpack("<6L2B4h", frame[2:])
 
-        self.statistics = d
+            self.statistics['point_cloud'] = ptcld
+
+        self.statistics['rx_buffer_length'] = len(self.connection.rx_buffer)
+        self.statistics['rx_packet_queue'] = self.get_queue_size()
 
     def get_statistics(self):
         """
