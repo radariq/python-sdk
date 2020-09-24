@@ -17,8 +17,9 @@ def point_cloud():
         riq.set_angle_filter(-45, 45)
         riq.start(FRAME_COUNT)
 
-        for row in riq.get_data():
-            print(row)
+        for frame in riq.get_data():
+            if frame is not None:
+                print(frame)
 
     except Exception as error:
         print(error)
