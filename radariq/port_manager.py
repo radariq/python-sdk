@@ -60,7 +60,7 @@ def find_com_ports():
     for port in raw_ports:
         try:
             if port.vid == USB_VID and port.pid == USB_PID:
-                connection = Serial(port=port.name, baudrate=115200, timeout=1)
+                connection = Serial(port=port.device, baudrate=115200, timeout=1)
                 connection.close()
                 ports.append(port)
         except SerialException:
