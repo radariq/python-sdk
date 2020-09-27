@@ -690,6 +690,47 @@ class RadarIQ:
         except Exception:
             raise Exception("Failed to set height filter")
 
+    def get_object_type_mode(self):
+        """
+        Gets the object type mode from the sensor.
+
+        :return: The object type mode. See `Object Type Modes`_
+        :rtype: int
+        """
+        try:
+            self._send(pack("<BB", 0x16, 0x00))
+            res = unpack("<BBB", self._read())
+            if res[0] == 0x16 and res[1] == 0x01:
+                return res[2]
+            else:
+                raise Exception("Invalid response")
+        except Exception:
+            raise Exception("Failed to get object type mode")
+
+    def set_object_type_mode(self, mode):
+        """
+        Sets the object type mode for the sensor.
+
+        :param mode: See `Object Type Modes`_
+        :type mode: int
+        :return: None
+        """
+        if not 0 <= mode <= 1:
+            raise ValueError("Invalid object type mode")
+
+        try:
+            self._send(pack("<BBB", 0x16, 0x02, mode))
+            res = unpack("<BBB", self._read())
+            if res[0] == 0x16 and res[1] == 0x01:
+                if res[2] == mode:
+                    return True
+                else:
+                    raise Exception("Object Tracking mode did not set correctly")
+            else:
+                raise Exception("Invalid response")
+        except Exception:
+            raise Exception("Failed to set object tracking mode")
+
     def scene_calibration(self):
         """
         Calibrate the sensor to remove any near-field objects from the scene.
