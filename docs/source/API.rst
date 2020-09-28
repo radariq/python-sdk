@@ -111,19 +111,30 @@ Certainty values
     @todo explain what each means
 
 
-Object Type Modes
+Object type modes
 #################
 
-    Object type modes are only useful when the sensor is in object tracking mode.
     These modes optimise the sensor for specific types of objects.
 
-    0 = Small object (eg a dog)
+    .. warning:: Object tracking mode only.
 
-    1 = Person walking
+    .. data:: OBJECT_TYPE_DOG
 
-    2 = Cyclist
+        Dog or other similar sized object.
 
-    3 = Vehicle traveling <30km/h
+    .. data:: OBJECT_TYPE_PERSON
 
-    4 = Vehicle traveling >30km/h
+        Person walking or other similar object.
+
+    .. data:: OBJECT_TYPE_CYCLIST
+
+        Person on a bicycle or other similar object.
+
+    .. data:: OBJECT_TYPE_SLOW_VEHICLE
+
+        Vehicle traveling less than 30km/h or other similar object.
+
+    .. data:: OBJECT_TYPE_FAST_VEHICLE
+
+        Vehicle traveling greater than 30km/h or other similar object.
 
