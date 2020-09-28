@@ -1,5 +1,5 @@
 =================================
- python-sdk  |build-status| |docs|
+Python SDK  |docs|
 =================================
 
 
@@ -89,3 +89,7 @@ Other pages
 .. _`RadarIQ-M1`: https://radariq.io/products/radariq-m1
 .. _`radariq.io`: https://radariq.io
 .. _examples: https://github.com/radariq/python-sdk/blob/master/examples
+
+.. |docs| image:: https://readthedocs.org/projects/pip/badge/?version=stable
+:target: https://pip.pypa.io/en/stable/?badge=stable
+:alt: Documentation Status
