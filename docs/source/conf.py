@@ -20,6 +20,7 @@ project = 'RadarIQ SDK'
 copyright = '2020, RadarIQ Ltd'
 author = 'Aaron Fulton'
 version = '0.1'
+master_doc = 'index'
 
 # -- General configuration ---------------------------------------------------
 
