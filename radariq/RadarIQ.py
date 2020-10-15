@@ -7,8 +7,7 @@ from __future__ import division
 import logging
 import time
 import threading
-import queue
-from radariq.compatability import pack, unpack, as_hex, int_to_bytes
+from radariq.compatability import pack, unpack, as_hex, int_to_bytes,queue
 from radariq.TSerial import TSerial, CONNECTION_DISCONNECTED
 import radariq.units_converter as units
 from radariq.port_manager import find_com_port
