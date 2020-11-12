@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'RadarIQ SDK'
 copyright = '2020, Aaron Fulton'
 author = 'Aaron Fulton'
-version = '1.0'
+version = '0.1'
+master_doc = 'index'
 
 # -- General configuration ---------------------------------------------------
 

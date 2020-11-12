@@ -1,5 +1,5 @@
 import setuptools
-with open("README.md", "r") as fh:
+with open("README.rst", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
@@ -7,11 +7,11 @@ setuptools.setup(
     version='1.0.5',
     author='RadarIQ Ltd',
     author_email='support@radariq.io',
-    description='Python wrapper for the RadarIQ Module',
+    description='Python SDK for the RadarIQ sensor',
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=['radariq'],
-    url='http://github.com/radarIQ/pythonWrapper',
+    url='http://github.com/radariq/python-sdk',
     license='MIT',
     python_requires='>=2.7',
     classifiers=[

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier:    MIT
 
 """
-Some tests for the RadarIQ M1 API wrapper.
+Some tests for the RadarIQ API wrapper.
 These tests use a mock pyserial implementation.
 """
 
@@ -31,7 +31,6 @@ class TestMethods(unittest.TestCase):
             msg = b'\xff\x02\x01' + text.ljust(200, '\x00').encode()
             self.riq.connection.send_bsl_packet(msg)
             self.riq._read()
-            # Expect to see stuff on the logs @todo can we read from the logs programmatically?
         except:
             pass
 

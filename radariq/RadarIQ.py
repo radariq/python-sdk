@@ -37,7 +37,6 @@ OUTPUT_NUMPY = 1
 log = logging.getLogger('RadarIQ')
 
 
-# @todo message type handeling
 class RadarIQ:
     """
     API Wrapper for the RadarIQ-M1 sensor
@@ -832,7 +831,7 @@ class RadarIQ:
 
                         if subframe_type == 0x02:  # End of frame
                             self.capture_count += 1
-                            if self.output_format == OUTPUT_LIST:  # @todo put tests around this
+                            if self.output_format == OUTPUT_LIST:
                                 data = rx_frame
                             elif self.output_format == OUTPUT_NUMPY:
                                 data = self._convert_pointcloud_to_numpy(rx_frame)
@@ -880,7 +879,7 @@ class RadarIQ:
 
                         if subframe_type == 0x02:  # End of frame
                             self.capture_count += 1
-                            if self.output_format == OUTPUT_LIST:  # @todo put tests around this
+                            if self.output_format == OUTPUT_LIST:
                                 data = rx_frame
                             elif self.output_format == OUTPUT_NUMPY:
                                 data = self._convert_object_tracking_to_numpy(rx_frame)
