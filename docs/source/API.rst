@@ -109,32 +109,3 @@ Certainty values
 
     9 = Most certain
     @todo explain what each means
-
-
-Object type modes
-#################
-
-    These modes optimise the sensor for specific types of objects.
-
-    .. warning:: Object tracking mode only.
-
-    .. data:: OBJECT_TYPE_DOG
-
-        Dog or other similar sized object.
-
-    .. data:: OBJECT_TYPE_PERSON
-
-        Person walking or other similar object.
-
-    .. data:: OBJECT_TYPE_CYCLIST
-
-        Person on a bicycle or other similar object.
-
-    .. data:: OBJECT_TYPE_SLOW_VEHICLE
-
-        Vehicle traveling less than 30km/h or other similar object.
-
-    .. data:: OBJECT_TYPE_FAST_VEHICLE
-
-        Vehicle traveling greater than 30km/h or other similar object.
-

@@ -91,5 +91,5 @@ Other pages
 .. _examples: https://github.com/radariq/python-sdk/blob/master/examples
 
 .. |docs| image:: https://readthedocs.org/projects/pip/badge/?version=stable
-:target: https://pip.pypa.io/en/stable/?badge=stable
-:alt: Documentation Status
+   :target: https://pip.pypa.io/en/stable/?badge=stable
+   :alt: Documentation Status

@@ -99,11 +99,13 @@ class TSerial(Serial):
         while self.thread_running:
             try:
                 msg = self.read_fast(PACKET_FOOT_BYTES, PACKET_HEAD_BYTES)
-                self.q.put_nowait(self.decode(msg))
+                if msg:
+                    self.q.put_nowait(self.decode(msg))
             except queue.Full:
                 log.warning("Cannot add message to the queue because the queue is full")
             except Exception as err:
-                log.info(err)
+                pass
+                # log.info(err)
         self._thread_process_running = False
 
     def read_from_queue(self):
