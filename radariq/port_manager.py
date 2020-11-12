@@ -34,10 +34,10 @@ def find_com_port():
         raise Exception("No RadarIQ modules detected")
 
 
-def find_com_ports():
+def find_com_ports(all_ports=False):
     """
-    Find the COM port(s) of RadarIQ modules which are not currently in use.
-
+    Find the COM port(s) of RadarIQ modules which are not currently in use (default) or all ports if all ports
+    if "all_ports" flag is set to True.
 
     *Usage:*
 
@@ -60,8 +60,9 @@ def find_com_ports():
     for port in raw_ports:
         try:
             if port.vid == USB_VID and port.pid == USB_PID:
-                connection = Serial(port=port.name, baudrate=115200, timeout=1)
-                connection.close()
+                if not all_ports:
+                    connection = Serial(port=port.device, baudrate=115200, timeout=1)
+                    connection.close()
                 ports.append(port)
         except SerialException:
             # Probably in use
