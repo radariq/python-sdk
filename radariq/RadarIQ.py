@@ -115,7 +115,7 @@ class RadarIQ:
         :param msg: message to send
         :type msg: bytes
         """
-        print("Sending: " + as_hex(msg))
+        #print("Sending: " + as_hex(msg))
         self.connection.flush_all()
         self.connection.send_packet(msg)
 
@@ -131,7 +131,7 @@ class RadarIQ:
             msg = self.connection.read_from_queue()
 
             if msg is not None:
-                print("Receiving:", as_hex(msg))
+                #print("Receiving:", as_hex(msg))
                 if msg[0:1] == int_to_bytes(0x00):  # Message packet. Send to log instead of processing normally
                     self._process_message(msg)
                 else:

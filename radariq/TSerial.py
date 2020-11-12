@@ -104,7 +104,8 @@ class TSerial(Serial):
             except queue.Full:
                 log.warning("Cannot add message to the queue because the queue is full")
             except Exception as err:
-                log.info(err)
+                pass
+                # log.info(err)
         self._thread_process_running = False
 
     def read_from_queue(self):

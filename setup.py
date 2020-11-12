@@ -4,7 +4,7 @@ with open("README.rst", "r") as fh:
 
 setuptools.setup(
     name='radariq',
-    version='1.0.5',
+    version='1.0.0',
     author='RadarIQ Ltd',
     author_email='support@radariq.io',
     description='Python SDK for the RadarIQ sensor',
