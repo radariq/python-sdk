@@ -4,6 +4,7 @@ from radariq import RadarIQ, MODE_OBJECT_TRACKING
 Example program which receives object tracking frames
 """
 
+
 def object_tracking():
     try:
         riq = RadarIQ()
@@ -14,8 +15,9 @@ def object_tracking():
         riq.set_angle_filter(-45, 45)
         riq.start()
 
-        for row in riq.get_data():
-            print(row)
+        for frame in riq.get_data():
+            if frame is not None:
+                print(frame)
 
     except Exception as error:
         print(error)

@@ -1,17 +1,19 @@
 import setuptools
-with open("README.md", "r") as fh:
+import os
+readme = os.path.join("docs","source","PyPi.rst")
+with open(readme, "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name='radariq',
-    version='1.0.5',
+    version='1.0.2',
     author='RadarIQ Ltd',
     author_email='support@radariq.io',
-    description='Python wrapper for the RadarIQ Module',
+    description='Python SDK for the RadarIQ sensor',
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=['radariq'],
-    url='http://github.com/radarIQ/pythonWrapper',
+    url='http://github.com/radariq/python-sdk',
     license='MIT',
     python_requires='>=2.7',
     classifiers=[

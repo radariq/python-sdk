@@ -16,10 +16,11 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'RadarIQ SDK'
-copyright = '2020, Aaron Fulton'
-author = 'Aaron Fulton'
-version = '1.0'
+project = 'RadarIQ Python SDK'
+copyright = '2020, RadarIQ Ltd'
+author = 'RadarIQ Ltd'
+version = '1.0.2'
+master_doc = 'index'
 
 # -- General configuration ---------------------------------------------------
 
