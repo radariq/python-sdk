@@ -22,6 +22,7 @@ author = 'RadarIQ Ltd'
 version = '1.0.2'
 master_doc = 'index'
 
+
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
