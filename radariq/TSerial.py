@@ -101,6 +101,8 @@ class TSerial(Serial):
                 msg = self.read_fast(PACKET_FOOT_BYTES, PACKET_HEAD_BYTES)
                 if msg:
                     self.q.put_nowait(self.decode(msg))
+                else:
+                    time.sleep(0.01)
             except queue.Full:
                 log.warning("Cannot add message to the queue because the queue is full")
             except Exception as err:
@@ -131,7 +133,7 @@ class TSerial(Serial):
         """
         Works like read_until but is much faster and does not use timeouts or max sizes.
 
-        This routine can optioally be made to sleep for short periods (to decrease CPU usage)
+        This routine can optionally be made to sleep for short periods (to decrease CPU usage)
 
         :param footer: Footer byte to search for
         :param header: Header byte to search for (optional)

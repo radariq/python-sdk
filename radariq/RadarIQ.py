@@ -968,7 +968,8 @@ class RadarIQ:
                             break
                     else:
                         pass
-                time.sleep(0.01)
+                else:
+                    time.sleep(0.01)
             except ValueError:
                 pass
         self.stop()
