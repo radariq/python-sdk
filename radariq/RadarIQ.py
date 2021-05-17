@@ -249,12 +249,12 @@ class RadarIQ:
         """
         try:
             self._send(pack("<BB", 0x14, 0x00))
-            res = unpack("<BBH20sBBH20sBBH20sBBH", self._read())
+            res = unpack("<BBBBH20sBBH20sBBH20sBBH", self._read())
             if res[0] == 0x14 and res[1] == 0x01:
-                return {'controller': res[2:5],
-                        'application_1': res[5:9],
-                        'application_2': res[9:13],
-                        'application_3': res[13:17]
+                return {'controller': [res[2], res[3], res[4]],
+                        'application_1': [res[5].decode().rstrip('\x00'), res[6], res[7], res[8]],
+                        'application_2': [res[9].decode().rstrip('\x00'), res[10], res[11], res[12]],
+                        'application_3': [res[13].decode().rstrip('\x00'), res[14], res[15], res[16]]
                         }
             else:
                 raise Exception("Invalid response")
