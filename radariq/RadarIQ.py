@@ -215,9 +215,9 @@ class RadarIQ:
                     log.debug('{} {}'.format(message_code, message))
                 elif message_type in [2, 5]:
                     log.info('{} {}'.format(message_code, message))
-                elif message_type in 3:
+                elif message_type in [3]:
                     log.warning('{} {}'.format(message_code, message))
-                elif message_type in 4:
+                elif message_type in [4]:
                     log.error('{} {}'.format(message_code, message))
         except Exception:
             raise Exception("Failed to process message from the RadarIQ sensor")
@@ -878,8 +878,9 @@ class RadarIQ:
                 subframe = self.connection.read_from_queue()
                 if subframe is not None:
                     (command, variant) = unpack("<BB", subframe[:2])
-                    if command == 0x68 and variant == 0x01:  # is statistics packet
+                    if command in [0x68, 0x70] and variant == 0x01:  # is statistics packet
                         self._process_statistics(command, subframe)
+
 
                     elif command == 0x66 and variant == 0x01:  # is a point cloud packet
                         (subframe_type, count) = unpack("<BB", subframe[2:4])
@@ -1037,10 +1038,10 @@ class RadarIQ:
         elif packet_type == 0x70:  # Point Cloud
             ptcld = {}
             (ptcld['points_aggregation_time'],
-             ptcld['intensity_sort_time'], ptcld['nearest_neighbours_time'],
-             ptcld['filter_points_removed'], ptcld['num_transmitted_points'], ptcld['input_points_truncated'],
-             ptcld['output_points_truncated']
-             ) = unpack("<6L2B4h", frame[2:])
+             ptcld['intensity_sort_time'], ptcld['nearest_neighbours_time'], ptcld['uart_transmission_time'],
+             ptcld['filter_points_removed'], ptcld['num_transmitted_points'], ptcld['input_points_truncated_flag'],
+             ptcld['output_points_truncated_flag']
+             ) = unpack("<6L2B", frame[2:])
 
             self.statistics['point_cloud'] = ptcld
 
