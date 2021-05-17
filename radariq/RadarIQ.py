@@ -1056,7 +1056,6 @@ class RadarIQ:
         """
         if self.statistics is not None:
             s = self.statistics.copy()
-            self.statistics = None
             return s
         else:
             return None
