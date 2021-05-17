@@ -210,7 +210,7 @@ class RadarIQ:
             if res[0] == 0x00 and res[1] == 0x01:
                 message_type = res[2]
                 message_code = res[3]
-                message = res[4]
+                message = res[4].decode().rstrip('\x00')
                 if message_type in [0, 1]:
                     log.debug('{} {}'.format(message_code, message))
                 elif message_type in [2, 5]:
@@ -749,7 +749,7 @@ class RadarIQ:
         :meth:`scene_calibration`. Once run the scene calibration will be saved to the sensor
         """
         try:
-            self._send(pack("<BB", 0x15, 0x03))
+            self._send(pack("<BB", 0x15, 0x02))
             _ = self._read()
         except Exception:
             raise Exception("Failed to perform scene calibration")
