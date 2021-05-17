@@ -595,11 +595,11 @@ class RadarIQ:
         except Exception:
             raise Exception("Failed to set the point density")
 
-    def get_certainty(self):
+    def get_sensitivity(self):
         """
-        Get the point certainty setting.
+        Get the point sensitivity setting.
 
-        :return: Certainty setting. See `Certainty values`_.
+        :return: Sensitivity setting. See `Sensitivity values`_.
         :rtype: int
         """
         try:
@@ -610,30 +610,30 @@ class RadarIQ:
             else:
                 raise Exception("Invalid response")
         except Exception:
-            raise Exception("Failed to get certainty setting")
+            raise Exception("Failed to get sensitivity setting")
 
-    def set_certainty(self, certainty):
+    def set_sensitivity(self, sensitivity):
         """
-        Sets the the certainty setting to apply to the readings.
+        Sets the the sensitivity setting to apply to the readings.
 
-        :param certainty: The certainty setting to set. See `Certainty values`_.
-        :type certainty: int
+        :param sensitivity: The sensitivity setting to set. See `Sensitivity values`_.
+        :type sensitivity: int
         """
-        if not (isinstance(certainty, int) and 0 <= certainty <= 9):
-            raise ValueError("Certainty must be an integer between 0 and 9")
+        if not (isinstance(sensitivity, int) and 0 <= sensitivity <= 9):
+            raise ValueError("Sensitivity must be an integer between 0 and 9")
 
         try:
-            self._send(pack("<BBB", 0x11, 0x02, certainty))
+            self._send(pack("<BBB", 0x11, 0x02, sensitivity))
             res = unpack("<BBB", self._read())
             if res[0] == 0x11 and res[1] == 0x01:
-                if res[2] == certainty:
+                if res[2] == sensitivity:
                     return True
                 else:
-                    raise Exception("Certainty setting did not set correctly")
+                    raise Exception("Sensitivity setting did not set correctly")
             else:
                 raise Exception("Invalid response")
         except Exception:
-            raise Exception("Failed to set the certainty setting")
+            raise Exception("Failed to set the sensitivity setting")
 
     def get_height_filter(self):
         """
