@@ -182,7 +182,7 @@ class RadarIQ:
         :type distance_units: str
         :param speed_units: The speed units to use: "mm/s", "cm/s", "m/s", "km/h", "in/s", "ft/s", "mi/h"
         :type speed_units: str
-        :param acceleration_units: The speed units to use: "mm/s^2", "m/s^2", "in/s^2", "ft/s^2"
+        :param acceleration_units: The acceleration units to use: "mm/s^2", "m/s^2", "in/s^2", "ft/s^2"
         :type acceleration_units: str
         """
         try:
