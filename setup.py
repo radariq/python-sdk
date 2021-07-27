@@ -1,6 +1,7 @@
 import setuptools
 import os
-readme = os.path.join("docs","source","PyPi.rst")
+
+readme = os.path.join("docs", "source", "PyPi.rst")
 with open(readme, "r") as fh:
     long_description = fh.read()
 
@@ -16,6 +17,7 @@ setuptools.setup(
     url='http://github.com/radariq/python-sdk',
     license='MIT',
     python_requires='>=2.7',
+    install_requires=['six', 'pyserial', 'numpy'],
     classifiers=[
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
