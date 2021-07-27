@@ -206,7 +206,9 @@ class RadarIQ:
         Process a message onto the python log.
         """
         try:
-            res = unpack("<BBBB200s", msg)
+            message_length = len(msg) - 4
+            packing = "<BBBB{}s".format(message_length)
+            res = unpack(packing, msg)
             if res[0] == 0x00 and res[1] == 0x01:
                 message_type = res[2]
                 message_code = res[3]
