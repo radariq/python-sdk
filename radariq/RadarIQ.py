@@ -845,7 +845,7 @@ class RadarIQ:
         """
         while self.is_capturing:
             try:
-                yield self.data_queue.get_nowait()
+                yield self.data_queue.get()
             except queue.Empty:
                 yield None
 
