@@ -756,6 +756,49 @@ class RadarIQ:
         except Exception:
             raise Exception("Failed to perform scene calibration")
 
+    def get_auto_start(self):
+        """
+        Gets the autostart setting.
+
+        :return: True or False
+        :rtype: bool
+        """
+        try:
+            self._send(pack("<BB", 0x17, 0x00))
+            res = unpack("<BBB", self._read())
+            if res[0] == 0x17 and res[1] == 0x01:
+                return bool(res[2])
+            else:
+                raise Exception("Invalid response")
+        except Exception:
+            raise Exception("Failed to get auto start")
+
+    def set_auto_start(self, auto_start):
+        """
+        Sets the auto start settings.
+
+        Auto start immediately starts the RadarIQ sensor on power on.
+
+        :param auto_start: The auto start setting (True or False)
+        :type auto_start: bool
+        """
+
+        if not isinstance(auto_start, bool):
+            raise ValueError("Auto start must be a boolean")
+
+        try:
+            self._send(pack("<BBB", 0x17, 0x02, int(auto_start)))
+            res = unpack("<BBB", self._read())
+            if res[0] == 0x17 and res[1] == 0x01:
+                if res[2] == int(auto_start):
+                    return True
+                else:
+                    raise Exception("Auto start did not set correctly")
+            else:
+                raise Exception("Invalid response")
+        except Exception:
+            raise Exception("Failed to set auto start")
+
     def start(self, samples=0, clear_buffer=True):
         """
         Start to capture data into the queue. To fetch data use get_data() and to stop capture call stop_capture().
