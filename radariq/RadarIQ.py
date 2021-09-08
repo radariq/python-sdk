@@ -250,18 +250,33 @@ class RadarIQ:
         :rtype: dict
         """
         try:
-            self._send(pack("<BB", 0x14, 0x00))
-            res = unpack("<BBBBH20sBBH20sBBH20sBBH", self._read())
-            if res[0] == 0x14 and res[1] == 0x01:
-                return {'controller': [res[2], res[3], res[4]],
-                        'application_1': [res[5].decode().rstrip('\x00'), res[6], res[7], res[8]],
-                        'application_2': [res[9].decode().rstrip('\x00'), res[10], res[11], res[12]],
-                        'application_3': [res[13].decode().rstrip('\x00'), res[14], res[15], res[16]]
-                        }
-            else:
-                raise Exception("Invalid response")
+            data = {'controller': ['', 0, 0, 0],
+                    'application_1': ['', 0, 0, 0],
+                    'application_2': ['', 0, 0, 0],
+                    'application_3': ['', 0, 0, 0],
+                    }
+            self._send(pack("<BBB", 0x14, 0x00, 0x01))
+            res = unpack("<BBB20sBBH", self._read())  # Slot 1
+            if res[0] == 0x14 and res[1] == 0x01 and res[2] == 1:
+                data['controller'] = [res[3].decode().rstrip('\x00'), res[4], res[5], res[6]]
 
-        except Exception:
+            self._send(pack("<BBB", 0x14, 0x00, 0x02))
+            res = unpack("<BBB20sBBH", self._read())  # Slot 2
+            if res[0] == 0x14 and res[1] == 0x01 and res[2] == 2:
+                data['application_1'] = [res[3].decode().rstrip('\x00'), res[4], res[5], res[6]]
+
+            self._send(pack("<BBB", 0x14, 0x00, 0x03))
+            res = unpack("<BBB20sBBH", self._read())  # Slot 3
+            if res[0] == 0x14 and res[1] == 0x01 and res[2] == 3:
+                data['application_2'] = [res[3].decode().rstrip('\x00'), res[4], res[5], res[6]]
+
+            self._send(pack("<BBB", 0x14, 0x00, 0x04))
+            res = unpack("<BBB20sBBH", self._read())  # Slot 4
+            if res[0] == 0x14 and res[1] == 0x01 and res[2] == 4:
+                data['application_3'] = [res[3].decode().rstrip('\x00'), res[4], res[5], res[6]]
+
+            return data
+        except Exception as err:
             raise Exception("Failed to get radar versions")
 
     def get_serial_number(self):
@@ -273,7 +288,8 @@ class RadarIQ:
         """
         try:
             self._send(pack("<BB", 0x02, 0x00))
-            res = unpack("<BBQQ", self._read())
+            res = unpack("<BBLL", self._read())
+            print(res.hex())
             if res[0] == 0x02 and res[1] == 0x01:
                 return "{}-{}".format(res[2], res[3])
             else:
