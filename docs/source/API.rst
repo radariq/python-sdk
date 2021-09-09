@@ -84,31 +84,15 @@ Data output formats
         When set, :meth:`get_data` returns a an ndarray of values.
         See :meth:`get_data` for further details.
 
-Certainty values
+Sensitivity values
 ################
 
-    Certainty values describe the amount of pre-processing done on the sensor.
-    This involves: Threshold for detections,
-    0 = Least certain
+    Sensitivity alters the sensitivity of the sensor. Note increasing the sensitivity can lead to false detections
+    0 = Most sensitive
 
-    1 = Least certain
+    5 = Default sensitive
 
-    2 = Least certain
-
-    3 = Least certain
-
-    4 = Least certain
-
-    5 = Least certain
-
-    6 = Least certain
-
-    7 = Least certain
-
-    8 = Least certain
-
-    9 = Most certain
-    @todo explain what each means
+    9 = Least sensitive
 
 
 Object type modes

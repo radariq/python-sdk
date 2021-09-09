@@ -289,7 +289,6 @@ class RadarIQ:
         try:
             self._send(pack("<BB", 0x02, 0x00))
             res = unpack("<BBLL", self._read())
-            print(res.hex())
             if res[0] == 0x02 and res[1] == 0x01:
                 return "{}-{}".format(res[2], res[3])
             else:
