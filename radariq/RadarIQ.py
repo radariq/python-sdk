@@ -125,7 +125,7 @@ class RadarIQ:
         :param msg: message to send
         :type msg: bytes
         """
-        #print("Sending: " + as_hex(msg))
+        # print("Sending: " + as_hex(msg))
         self.connection.flush_all()
         self.connection.send_packet(msg)
 
@@ -141,7 +141,7 @@ class RadarIQ:
             msg = self.connection.read_from_queue()
 
             if msg is not None:
-                #print("Receiving:", as_hex(msg))
+                # print("Receiving:", as_hex(msg))
                 if msg[0:1] == int_to_bytes(0x00):  # Message packet. Send to log instead of processing normally
                     self._process_message(msg)
                 else:
@@ -872,7 +872,7 @@ class RadarIQ:
 
         .. code-block:: python
 
-            [[x, y, z, speed, intensity, velocity]..]
+            [[x, y, z, intensity, velocity]..]
 
         **Object Tracking**
 
@@ -1045,10 +1045,11 @@ class RadarIQ:
         cnt = len(frame)
         data = np.zeros((cnt, 4))
         for idx, point in enumerate(frame):
-            data[idx][0] = point[0]
-            data[idx][1] = point[1]
-            data[idx][2] = point[2]
-            data[idx][3] = point[3]
+            data[idx][0] = point[0]  # x
+            data[idx][1] = point[1]  # y
+            data[idx][2] = point[2]  # z
+            data[idx][3] = point[3]  # intensity
+            data[idx][4] = point[4]  # velocity
         return data
 
     def _convert_object_tracking_to_numpy(self, frame):
