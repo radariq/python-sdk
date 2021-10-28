@@ -345,8 +345,8 @@ class RadarIQ:
         if not isinstance(frame_rate, int):
             raise ValueError("Frame rate must be an integer")
 
-        if not 0 <= frame_rate <= 30:
-            raise ValueError("Frame rate must be between 0 and 30 fps")
+        if not 0 <= frame_rate <= 20:
+            raise ValueError("Frame rate must be between 0 and 20 fps")
 
         try:
             self._send(pack("<BBB", 0x04, 0x02, frame_rate))
