@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'RadarIQ Python SDK'
 copyright = '2020, RadarIQ Ltd'
 author = 'RadarIQ Ltd'
-version = '1.0.4'
+version = '1.0.5'
 master_doc = 'index'
 
 
