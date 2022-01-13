@@ -903,7 +903,7 @@ class RadarIQ:
         """
         while self.is_capturing:
             try:
-                yield self.data_queue.get()
+                yield self.data_queue.get(timeout=1)
             except queue.Empty:
                 yield None
 
@@ -1043,7 +1043,7 @@ class RadarIQ:
         """
 
         cnt = len(frame)
-        data = np.zeros((cnt, 4))
+        data = np.zeros((cnt, 5))
         for idx, point in enumerate(frame):
             data[idx][0] = point[0]  # x
             data[idx][1] = point[1]  # y
